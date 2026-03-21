@@ -1,0 +1,15 @@
+# Dépendances
+/node_modules
+/client/node_modules
+/server/node_modules
+
+# Fichiers d'environnement (contiennent des secrets)
+.env
+/server/.env
+
+# Dossiers de build
+/client/dist
+/dist
+
+# Fichiers système macOS
+.DS_Store

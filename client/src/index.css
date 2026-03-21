@@ -1,0 +1,47 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --green:      #00A651;
+  --green-dark: #007A3D;
+  --green-dim:  #E6F5EC;
+  --red:        #CE1126;
+  --yellow:     #FCD116;
+  --ink:        #0F1117;
+  --ink-2:      #1E2029;
+  --ink-3:      #2C2F3A;
+  --muted:      #6B7280;
+  --border:     #E5E7EB;
+  --surface:    #F9FAFB;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: #F4F5F0;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+h1,h2,h3,h4,h5 { font-family: 'Syne', sans-serif; }
+
+code, pre, .mono { font-family: 'Space Mono', monospace; }
+
+/* Scrollbar fine */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 2px; }
+
+/* Highlight.js override */
+.hljs { background: #0F1117 !important; border-radius: 0 !important; }
+
+/* Sidebar item active */
+.sidebar-active {
+  background: var(--green-dim);
+  color: var(--green-dark);
+  font-weight: 600;
+}
