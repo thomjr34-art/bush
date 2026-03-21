@@ -229,7 +229,7 @@ export default function CreateProject() {
           <div className="w-7 h-7 bg-ink rounded-lg flex items-center justify-center">
             <span className="text-white font-mono font-bold text-lg">B</span>
           </div>
-          <span className="font-syne font-bold text-sm text-ink">Nouveau projet</span>
+          <span className="font-syne font-bold text-sm text-ink">Bush</span>
         </div>
         <nav className="space-y-1">
           {[{n:1,label:"Informations"},{n:2,label:"Contenu"},{n:3,label:"Publier"}].map(({ n, label }) => (
