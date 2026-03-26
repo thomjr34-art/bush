@@ -1,4 +1,5 @@
 import Joi from "joi";
+import "colors";
 
 export const registerSchema = Joi.object({
   nom:          Joi.string().min(2).max(100).required()
@@ -18,6 +19,7 @@ export const validate = (schema) => (req, res, next) => {
   const { error } = schema.validate(req.body, { abortEarly: false });
   if (error) {
     const messages = error.details.map(d => d.message);
+    console.log("[VALIDATION ERROR]".red.bold, messages[0].yellow);
     return res.status(400).json({ error: messages[0], errors: messages });
   }
   next();
