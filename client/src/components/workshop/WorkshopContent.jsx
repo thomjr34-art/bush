@@ -1,4 +1,5 @@
 import CodeBlock from "./CodeBlock.jsx";
+import MarkdownText from "./MarkdownText.jsx";
 
 function Bloc({ bloc }) {
   switch (bloc.type) {
@@ -13,25 +14,25 @@ function Bloc({ bloc }) {
               {bloc.titre}
             </h4>
           )}
-          <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap">{bloc.contenu}</p>
+          <MarkdownText text={bloc.contenu} className="text-gray-600 text-sm leading-relaxed block" />
         </div>
       );
     case "conseil":
       return (
         <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-4 my-4 flex gap-3">
           <span className="text-lg shrink-0">💡</span>
-          <p className="text-blue-800 text-sm leading-relaxed whitespace-pre-wrap">{bloc.contenu}</p>
+          <MarkdownText text={bloc.contenu} className="text-blue-800 text-sm leading-relaxed block" />
         </div>
       );
     case "avertissement":
       return (
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 my-4 flex gap-3">
           <span className="text-lg shrink-0">⚠️</span>
-          <p className="text-amber-800 text-sm leading-relaxed whitespace-pre-wrap">{bloc.contenu}</p>
+          <MarkdownText text={bloc.contenu} className="text-amber-800 text-sm leading-relaxed block" />
         </div>
       );
     default:
-      return <p className="text-gray-700 text-sm leading-relaxed my-3 whitespace-pre-wrap">{bloc.contenu}</p>;
+      return <MarkdownText text={bloc.contenu} className="text-gray-700 text-sm leading-relaxed my-3 block" />;
   }
 }
 

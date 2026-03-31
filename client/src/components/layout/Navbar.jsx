@@ -29,8 +29,9 @@ export default function Navbar() {
         {/* Nav centrale */}
         <nav className="hidden md:flex items-center gap-1">
           {[
-            { to: "/workshops", label: "Explorer" },
-            { to: "/parcours",  label: "Parcours"  },
+            { to: "/workshops",  label: "Explorer"    },
+            { to: "/parcours",   label: "Parcours"    },
+            { to: "/playground", label: "Playground"  },
           ].map(({ to, label }) => (
             <Link key={to} to={to}
               className={`px-3 py-1.5 rounded text-sm font-medium transition-colors

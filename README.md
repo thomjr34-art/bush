@@ -14,10 +14,11 @@ Bush est une plateforme éducative de projets guidés pas-à-pas pour les étudi
 4. [Structure des fichiers](#structure)
 5. [Base de données](#base-de-données)
 6. [API — Routes disponibles](#api)
-7. [Flux d'une requête de bout en bout](#flux)
-8. [Débogage — où chercher quand ça plante](#débogage)
-9. [Installation et lancement](#installation)
-10. [Commandes utiles](#commandes)
+7. [Compilateur & Terminal interactif](#compilateur--terminal-interactif)
+8. [Flux d'une requête de bout en bout](#flux)
+9. [Débogage — où chercher quand ça plante](#débogage)
+10. [Installation et lancement](#installation)
+11. [Commandes utiles](#commandes)
 
 ---
 
@@ -44,6 +45,8 @@ Les universités africaines forment des étudiants qui **utilisent** des framewo
 | Base de données | PostgreSQL | Stockage des données |
 | Upload | Multer | Gestion des PDF uploadés |
 | Coloration code | highlight.js | Rendu des blocs de code |
+| Exécution de code | child_process (Node.js natif) | Exécution locale des programmes |
+| Terminal interactif | WebSocket (`ws`) | Communication bidirectionnelle temps réel |
 
 ---
 
@@ -58,15 +61,12 @@ Navigateur (React · :5173)
         │
         │  GET /api/workshops?domaine_id=xxx
         ▼
-  Vite proxy (vite.config.js)
-        │
-        │  redirige /api → localhost:5001
-        ▼
   Express (index.js · :5001)
         │
         ├── CORS
         ├── express.json()
         ├── /uploads (fichiers PDF statiques)
+        ├── WebSocket Server (ws://localhost:5001/ws/run)  ← NOUVEAU
         │
         ▼
   Router (workshop.routes.js)
@@ -82,7 +82,7 @@ Navigateur (React · :5173)
         │
         └── retourne les données
             ↑ réponse remonte dans l'ordre inverse
-            ↑ JSON → Controller → Express → Vite → React → Affichage
+            ↑ JSON → Controller → Express → React → Affichage
 ```
 
 ### Schéma des composants React
@@ -90,22 +90,22 @@ Navigateur (React · :5173)
 ```
 App.jsx
 ├── StudentLayout
-│   ├── Navbar.jsx
+│   ├── Navbar.jsx                    ← lien Playground ajouté
 │   └── Pages
 │       ├── Home.jsx
-│       ├── Workshops.jsx          ← sidebar + grille filtrée
-│       │   └── Sidebar.jsx        ← filtres domaine / langage / niveau
-│       │   └── WorkshopCard.jsx   ← carte projet
-│       ├── WorkshopDetail.jsx     ← lecture du projet (contenu + PDF)
-│       │   └── WorkshopContent.jsx ← rendu sections + blocs
-│       │       └── CodeBlock.jsx  ← coloration syntaxique + copier
+│       ├── Workshops.jsx
+│       │   └── WorkshopCard.jsx
+│       ├── WorkshopDetail.jsx        ← Terminal intégré si activé
+│       │   └── Terminal.jsx          ← NOUVEAU — éditeur + terminal interactif
+│       ├── Playground.jsx            ← NOUVEAU — page dédiée /playground
+│       │   └── Terminal.jsx
 │       ├── Parcours.jsx
-│       └── CreateProject.jsx      ← éditeur en 3 étapes
+│       └── CreateProject.jsx         ← option compilateur ajoutée (étape 1)
 │
 └── AdminLayout (route /admin)
     ├── AdminDashboard.jsx
-    ├── AdminWorkshops.jsx         ← liste + publier/dépublier
-    └── AdminWorkshopForm.jsx      ← créer/éditer un workshop
+    ├── AdminWorkshops.jsx
+    └── AdminWorkshopForm.jsx
 ```
 
 ---
@@ -113,57 +113,29 @@ App.jsx
 ## Structure des fichiers
 
 ```
-Africadev-hub/
+bush/
 │
-├── client/                        # Frontend React
+├── client/                              # Frontend React
 │   ├── src/
-│   │   ├── App.jsx                # Routes principales
-│   │   ├── main.jsx               # Point d'entrée React
-│   │   ├── index.css              # Styles globaux + polices
+│   │   ├── App.jsx                      # Routes principales (+ /playground)
 │   │   ├── components/
 │   │   │   ├── layout/
-│   │   │   │   ├── Navbar.jsx     # Barre de navigation
-│   │   │   │   └── Sidebar.jsx    # Filtres latéraux
+│   │   │   │   └── Navbar.jsx           # + lien Playground
 │   │   │   └── workshop/
-│   │   │       ├── CodeBlock.jsx      # Bloc code avec highlight.js
-│   │   │       ├── WorkshopCard.jsx   # Carte projet
-│   │   │       └── WorkshopContent.jsx # Rendu du contenu JSON
-│   │   ├── pages/
-│   │   │   ├── Home.jsx
-│   │   │   ├── Workshops.jsx
-│   │   │   ├── WorkshopDetail.jsx
-│   │   │   ├── Parcours.jsx
-│   │   │   ├── CreateProject.jsx
-│   │   │   └── admin/
-│   │   │       ├── AdminLayout.jsx
-│   │   │       ├── AdminDashboard.jsx
-│   │   │       ├── AdminWorkshops.jsx
-│   │   │       └── AdminWorkshopForm.jsx
-│   │   └── services/
-│   │       └── api.js             # Toutes les fonctions axios
-│   ├── vite.config.js             # Config Vite + proxy
-│   └── tailwind.config.js         # Couleurs personnalisées
+│   │   │       ├── CodeBlock.jsx        # Bloc code + highlight.js
+│   │   │       ├── MarkdownText.jsx     # Rendu markdown inline (+ `code`)
+│   │   │       ├── WorkshopContent.jsx  # Rendu sections/blocs
+│   │   │       ├── Terminal.jsx         # NOUVEAU — terminal interactif WebSocket
+│   │   │       └── InlineCompiler.jsx   # (remplacé par Terminal)
+│   │   └── pages/
+│   │       ├── Playground.jsx           # NOUVEAU — page /playground
+│   │       ├── WorkshopDetail.jsx       # + Terminal si compilateur activé
+│   │       └── CreateProject.jsx        # + toggle compilateur + choix langages
 │
-└── server/                        # Backend Express
-    ├── index.js                   # Point d'entrée serveur
-    ├── config/
-    │   ├── db.js                  # Connexion PostgreSQL
-    │   ├── upload.js              # Config Multer (PDF)
-    │   └── schema.sql             # Schéma BDD + seeds
-    ├── controllers/
-    │   ├── workshop.controller.js
-    │   ├── domaine.controller.js
-    │   └── langage.controller.js
-    ├── models/
-    │   ├── workshop.model.js      # Requêtes SQL workshops
-    │   ├── domaine.model.js
-    │   └── langage.model.js
-    ├── routes/
-    │   ├── workshop.routes.js
-    │   ├── domaine.routes.js
-    │   └── langage.routes.js
-    └── uploads/
-        └── pdf/                   # PDF uploadés (ignoré par git)
+└── server/                              # Backend Express
+    ├── index.js                         # + WebSocket Server sur /ws/run
+    └── routes/
+        └── run.routes.js                # NOUVEAU — POST /api/run (exécution one-shot)
 ```
 
 ---
@@ -182,14 +154,14 @@ langages (id, nom, couleur, icone, created_at)
 -- Projets / Workshops
 workshops (
   id, titre, description,
-  contenu      JSONB,      -- contenu éditeur structuré en sections/blocs
-  pdf_url,                 -- chemin vers le PDF uploadé
+  contenu      JSONB,      -- contenu structuré en sections/blocs + config compilateur
+  pdf_url,
   pdf_nom,
-  langages     VARCHAR[],  -- ex: ARRAY['C', 'Python']
+  langages     VARCHAR[],
   domaine_id,
   niveau,                  -- debutant | intermediaire | avance
   duree_heures,
-  publie       BOOLEAN,    -- false = brouillon, true = visible
+  publie       BOOLEAN,
   vues,
   created_at, updated_at
 )
@@ -203,16 +175,22 @@ workshops (
     {
       "titre": "Introduction",
       "blocs": [
-        { "type": "texte", "contenu": "Dans ce projet..." },
-        { "type": "etape", "titre": "Étape 1 — Lexer", "contenu": "..." },
-        { "type": "code", "langage": "python", "contenu": "class Token:\n    ..." },
-        { "type": "conseil", "contenu": "Utilise OCaml pour le pattern matching" },
-        { "type": "avertissement", "contenu": "Ne pas oublier les cas limites" }
+        { "type": "texte",        "contenu": "Dans ce projet..." },
+        { "type": "etape",        "titre": "Étape 1", "contenu": "..." },
+        { "type": "code",         "langage": "python", "contenu": "print('hello')" },
+        { "type": "conseil",      "contenu": "Utilise des types explicites" },
+        { "type": "avertissement","contenu": "Ne pas oublier les cas limites" }
       ]
     }
-  ]
+  ],
+  "compilateur": {
+    "actif": true,
+    "langages": ["python", "javascript"]
+  }
 }
 ```
+
+> Le champ `compilateur` est **optionnel**. S'il est absent ou `actif: false`, aucun terminal n'est affiché sur le projet. Pas de migration de base de données nécessaire — il est stocké dans le champ JSONB `contenu` existant.
 
 ### Types de blocs disponibles
 
@@ -220,7 +198,7 @@ workshops (
 |------|-------------|-------|
 | `texte` | Paragraphe explicatif | Texte gris simple |
 | `etape` | Étape guidée numérotée | Bordure verte gauche + titre |
-| `code` | Bloc de code avec coloration | Fond noir, code coloré, bouton Copier |
+| `code` | Bloc de code avec coloration | Fond noir, highlight.js, bouton Copier |
 | `conseil` | Astuce ou bonne pratique | Fond bleu + icône 💡 |
 | `avertissement` | Point d'attention | Fond amber + icône ⚠️ |
 
@@ -233,7 +211,6 @@ workshops (
 | Méthode | Route | Description |
 |---------|-------|-------------|
 | GET | `/api/workshops` | Tous les workshops publiés |
-| GET | `/api/workshops?admin=true` | Tous (publiés + brouillons) |
 | GET | `/api/workshops?domaine_id=xxx` | Filtrer par domaine |
 | GET | `/api/workshops?langage=Python` | Filtrer par langage |
 | GET | `/api/workshops?niveau=avance` | Filtrer par niveau |
@@ -243,50 +220,183 @@ workshops (
 | PATCH | `/api/workshops/:id/publier` | Publier / dépublier |
 | DELETE | `/api/workshops/:id` | Supprimer |
 
-### Domaines & Langages
+### Exécution de code
 
 | Méthode | Route | Description |
 |---------|-------|-------------|
-| GET | `/api/domaines` | Liste des domaines |
-| POST | `/api/domaines` | Créer un domaine |
-| GET | `/api/langages` | Liste des langages |
-| POST | `/api/langages` | Créer un langage |
+| POST | `/api/run` | Exécution one-shot (sans stdin) |
+| WS | `ws://localhost:5001/ws/run` | Terminal interactif (avec stdin) |
 
-### Format de création d'un workshop (FormData)
+---
+
+## Compilateur & Terminal interactif
+
+### Vue d'ensemble
+
+La plateforme permet d'exécuter du code directement dans le navigateur, **sans aucun service cloud**. Tout tourne localement sur la machine via les outils installés (Python, Node.js, GCC, Go...).
+
+Il y a deux modes d'utilisation :
+
+| Mode | Où | Utilisation |
+|------|----|-------------|
+| **Playground** | `/playground` (navbar) | Tester n'importe quel code librement |
+| **Terminal intégré** | Page d'un projet | Tester le code du projet en contexte |
+
+---
+
+### Pourquoi WebSocket et pas HTTP classique ?
+
+Un programme interactif comme une calculatrice attend des entrées **pendant son exécution** :
 
 ```
-titre          : string (obligatoire)
-description    : string
-domaine_id     : UUID
-niveau         : debutant | intermediaire | avance
-langages       : JSON string → ["C", "Python"]
-duree_heures   : number
-publie         : boolean string → "true" | "false"
-contenu        : JSON string → { sections: [...] }
-pdf            : File (application/pdf, max 50Mo)
+Programme :  "Entrer le premier nombre : "   ← il attend
+Utilisateur: 42                               ← on envoie
+Programme :  "Entrer le deuxième nombre : "  ← il attend encore
+Utilisateur: 8                               ← on envoie
+Programme :  "Résultat : 50"                 ← il affiche
 ```
+
+Avec HTTP, une requête = une réponse. On ne peut pas envoyer plusieurs inputs après coup. Le WebSocket ouvre un **canal persistant bidirectionnel** : le serveur peut envoyer des données au navigateur à tout moment, et le navigateur peut envoyer des données au serveur à tout moment.
+
+---
+
+### Comment fonctionne le terminal — étape par étape
+
+#### 1. L'utilisateur clique "Exécuter"
+
+Le composant `Terminal.jsx` ouvre une connexion WebSocket vers le serveur :
+
+```js
+const ws = new WebSocket("ws://localhost:5001/ws/run");
+```
+
+#### 2. Une fois connecté, il envoie le code
+
+```json
+{ "type": "run", "language": "python", "code": "n = int(input('Nombre: '))\nprint(n * 2)" }
+```
+
+#### 3. Le serveur reçoit ce message (index.js)
+
+Il écrit le code dans un fichier temporaire (`/tmp/run_abc123.py`) et lance le programme avec `spawn` de Node.js :
+
+```js
+const srcFile = path.join(os.tmpdir(), `run_${id}.py`);
+fs.writeFileSync(srcFile, code, "utf8");
+
+const proc = spawn("python3", ["-u", srcFile]);
+```
+
+> `-u` force Python en mode **unbuffered** — sans ça, les `print()` seraient mis en buffer et n'arriveraient pas au navigateur en temps réel.
+
+#### 4. Le serveur relaie stdout/stderr en temps réel
+
+```js
+proc.stdout.on("data", (d) => {
+  ws.send(JSON.stringify({ type: "stdout", data: d.toString() }));
+});
+```
+
+Chaque fois que le programme écrit quelque chose (ex: `"Nombre: "`), le serveur l'envoie immédiatement au navigateur via WebSocket.
+
+#### 5. Le programme attend une entrée (`input()`, `scanf`...)
+
+Le programme est **bloqué** en attente sur `stdin`. Le serveur ne reçoit plus rien de stdout. Côté navigateur, le terminal affiche un champ de saisie jaune.
+
+#### 6. L'utilisateur tape et appuie sur Entrée
+
+Le navigateur envoie au serveur :
+
+```json
+{ "type": "stdin", "data": "42\n" }
+```
+
+Le serveur écrit ça sur `proc.stdin` :
+
+```js
+if (msg.type === "stdin" && proc) {
+  proc.stdin.write(msg.data);
+}
+```
+
+Le programme Python reçoit `"42\n"` comme si l'utilisateur l'avait tapé dans un vrai terminal.
+
+#### 7. Le programme se termine
+
+```js
+proc.on("close", (code) => {
+  ws.send(JSON.stringify({ type: "exit", code }));
+  // nettoyage des fichiers temporaires
+});
+```
+
+Le serveur envoie `exit 0` (succès) ou `exit 1` (erreur), le terminal affiche `─── Terminé (exit 0) ───` et ferme le channel.
+
+---
+
+### Langages supportés
+
+| Langage | Commande utilisée | Prérequis |
+|---------|-------------------|-----------|
+| Python | `python3 -u fichier.py` | Python 3 installé |
+| JavaScript | `node fichier.js` | Node.js installé |
+| C | `gcc -o out fichier.c && ./out` | GCC installé |
+| C++ | `g++ -o out fichier.cpp && ./out` | GCC installé |
+| Bash | `bash fichier.sh` | Bash (natif macOS/Linux) |
+| Go | `go run fichier.go` | Go installé |
+
+---
+
+### Option compilateur dans la création de projet
+
+Lors de la création d'un projet (étape 1), le créateur peut activer un **toggle "Compilateur intégré"** et choisir les langages disponibles pour ce projet.
+
+Cette config est sauvegardée dans le champ JSONB `contenu` :
+
+```json
+"compilateur": { "actif": true, "langages": ["python", "c"] }
+```
+
+Sur la page du projet, si `compilateur.actif === true`, le terminal est affiché en bas du contenu. Un projet de compilateur C n'en aura pas besoin — un projet de calculatrice Python oui.
+
+---
+
+### Formatage inline dans le texte des projets (`MarkdownText.jsx`)
+
+Le composant `MarkdownText` gère le formatage dans les blocs de type `texte`, `etape`, `conseil`, etc. :
+
+| Syntaxe | Rendu |
+|---------|-------|
+| `**texte**` | **gras** |
+| `*texte*` | *italique* |
+| `==texte==` | surligné jaune |
+| `` `code` `` | `code inline` (fond gris, texte rose) |
+| `\| col1 \| col2 \|` | tableau |
 
 ---
 
 ## Flux
 
-Voici ce qui se passe exactement quand un étudiant ouvre la page `/workshops` :
+Voici ce qui se passe quand un étudiant exécute du code sur un projet :
 
 ```
-1. React monte le composant Workshops.jsx
-2. useEffect appelle workshopService.getAll(filters)
-3. axios envoie GET http://localhost:5173/api/workshops
-4. Vite intercepte /api et redirige vers http://localhost:5001/api/workshops
-5. Express reçoit la requête sur le router workshop.routes.js
-6. Le router appelle getAllWorkshops() dans workshop.controller.js
-7. Le controller appelle WorkshopModel.getAll() dans workshop.model.js
-8. Le model exécute pool.query("SELECT * FROM workshops WHERE publie = true")
-9. PostgreSQL retourne les lignes
-10. Le model retourne result.rows au controller
-11. Le controller fait res.json(result.rows)
-12. La réponse JSON remonte jusqu'à React
-13. setWorkshops(data) met à jour l'état
-14. React re-rend la grille de WorkshopCard
+1. L'étudiant clique "Exécuter" dans Terminal.jsx
+2. Terminal.jsx ouvre ws://localhost:5001/ws/run
+3. Il envoie { type: "run", language: "python", code: "..." }
+4. index.js reçoit le message via WebSocketServer
+5. Il écrit le code dans /tmp/run_abc123.py
+6. Il lance python3 -u /tmp/run_abc123.py via spawn()
+7. Python imprime "Entrer un nombre : " → stdout
+8. index.js reçoit l'event stdout → ws.send({ type: "stdout", data: "Entrer..." })
+9. Terminal.jsx reçoit → affiche dans le terminal, montre le champ de saisie
+10. L'utilisateur tape "42" + Entrée
+11. Terminal.jsx envoie { type: "stdin", data: "42\n" }
+12. index.js écrit "42\n" sur proc.stdin
+13. Python reçoit l'entrée, calcule, affiche le résultat
+14. index.js relaie stdout → Terminal.jsx affiche le résultat
+15. Python se termine → index.js envoie { type: "exit", code: 0 }
+16. Terminal.jsx affiche "─── Terminé (exit 0) ───"
+17. Le fichier temporaire est supprimé
 ```
 
 ---
@@ -298,7 +408,6 @@ Voici ce qui se passe exactement quand un étudiant ouvre la page `/workshops` :
 ```
 1. Console navigateur (F12 → Console)
    → Erreur rouge = composant React cassé
-   → "Cannot find module" = import manquant
 
 2. Network tab (F12 → Network)
    → Requête en rouge = API qui répond mal
@@ -307,15 +416,15 @@ Voici ce qui se passe exactement quand un étudiant ouvre la page `/workshops` :
 
 3. Terminal du serveur
    → Erreur au démarrage = problème de config
-   → Erreur sur une requête = voir le stack trace
 
 4. Tester l'API directement
    curl http://localhost:5001/api/workshops
-   curl http://localhost:5001/api/domaines
+   curl -X POST http://localhost:5001/api/run \
+     -H "Content-Type: application/json" \
+     -d '{"language":"python","code":"print(42)"}'
 
 5. Tester la BDD directement
    psql africadev_hub -c "SELECT * FROM workshops;"
-   psql africadev_hub -c "SELECT * FROM domaines;"
 ```
 
 ### Erreurs fréquentes et solutions
@@ -324,28 +433,10 @@ Voici ce qui se passe exactement quand un étudiant ouvre la page `/workshops` :
 |--------|-------|----------|
 | `EADDRINUSE :5001` | Port déjà utilisé | `kill $(lsof -t -i:5001)` |
 | `role "postgres" does not exist` | Mauvais user DB | Mettre son username Mac dans `.env` |
-| `Cannot access 'pg' before initialization` | Node v25 + pg | `npm install pg@8.11.3` |
-| Page blanche + données chargées | Erreur JS React | Vérifier console F12 |
-| `Cannot find module './AuthContext'` | Import supprimé | Nettoyer les imports |
-| CORS error | URL mal configurée | Vérifier `CLIENT_URL` dans `.env` et proxy dans `vite.config.js` |
-
-### Ajouter des logs de débogage temporaires
-
-```js
-// Dans un controller
-export const getAllWorkshops = async (req, res) => {
-  console.log("Query params reçus :", req.query);   // ← ajouter
-  const result = await WorkshopModel.getAll(req.query);
-  console.log("Nombre de résultats :", result.rows.length); // ← ajouter
-  res.json(result.rows);
-};
-
-// Dans un model
-getAll: (filters) => {
-  console.log("Filtres SQL :", filters);  // ← ajouter
-  return pool.query(q, p);
-}
-```
+| Terminal : "Impossible de se connecter" | Serveur non redémarré | Redémarrer le backend après modif de `index.js` |
+| Pas d'input dans le terminal | Programme non interactif | Vérifier que le programme utilise `input()` / `scanf` |
+| Code C ne compile pas | GCC manquant | `brew install gcc` |
+| Code Go ne s'exécute pas | Go manquant | `brew install go` |
 
 ---
 
@@ -353,9 +444,10 @@ getAll: (filters) => {
 
 ### Prérequis
 
-- Node.js v18+ (v25 fonctionne avec `pg@8.11.3`)
+- Node.js v18+
 - PostgreSQL installé et démarré
-- npm ou yarn
+- npm
+- Compilateurs selon les langages souhaités : `python3`, `gcc`, `go`
 
 ### 1. Démarrer PostgreSQL
 
@@ -372,7 +464,7 @@ psql africadev_hub < server/config/schema.sql
 
 ### 3. Configurer l'environnement
 
-Copier et remplir `server/.env` :
+Créer `server/.env` :
 
 ```env
 PORT=5001
@@ -407,16 +499,14 @@ npm run dev
 ## Commandes utiles
 
 ```bash
-# Voir tous les workshops en BDD
-psql africadev_hub -c "SELECT id, titre, publie, niveau FROM workshops;"
-
-# Voir les domaines
-psql africadev_hub -c "SELECT * FROM domaines ORDER BY ordre;"
-
 # Tester l'API
-curl http://localhost:5001/
 curl http://localhost:5001/api/workshops
 curl http://localhost:5001/api/domaines
+
+# Tester l'exécution de code
+curl -X POST http://localhost:5001/api/run \
+  -H "Content-Type: application/json" \
+  -d '{"language":"python","code":"print(\"hello\")"}'
 
 # Libérer le port 5001
 kill $(lsof -t -i:5001)
@@ -438,8 +528,6 @@ cd client && npm run build
 ## Accès admin
 
 L'interface admin est accessible directement sans authentification à `/admin`.
-
-Pour les futurs déploiements en production, l'authentification sera ajoutée.
 
 ---
 

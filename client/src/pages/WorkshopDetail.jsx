@@ -3,6 +3,8 @@ import { useParams, Link } from "react-router-dom";
 import { workshopService, progressionService } from "../services/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import WorkshopContent from "../components/workshop/WorkshopContent.jsx";
+import CodeBlock from "../components/workshop/CodeBlock.jsx";
+import Terminal from "../components/workshop/Terminal.jsx";
 
 const niveauLabel = {
   debutant:      { label: "Débutant",      cls: "bg-green/10 text-green-dark border-green/20" },
@@ -137,27 +139,7 @@ export default function WorkshopDetail() {
                 )}
                 {(s.blocs||[]).map((b, j) => {
                   if (b.type === "code") return (
-                    <div key={j} className="rounded-xl overflow-hidden border border-gray-800 my-5 shadow-lg">
-                      <div className="flex items-center justify-between px-4 py-2.5 bg-[#161B22] border-b border-gray-800">
-                        <div className="flex items-center gap-2">
-                          <div className="flex gap-1.5">
-                            <div className="w-3 h-3 rounded-full bg-red-500/70"/>
-                            <div className="w-3 h-3 rounded-full bg-yellow/70"/>
-                            <div className="w-3 h-3 rounded-full bg-green/70"/>
-                          </div>
-                          <span className="text-xs font-mono text-gray-500 ml-1">{b.langage||"code"}</span>
-                        </div>
-                        <button onClick={() => navigator.clipboard.writeText(b.contenu)}
-                          className="text-xs text-gray-500 hover:text-white transition-colors">
-                          Copier
-                        </button>
-                      </div>
-                      <pre className="!m-0 overflow-x-auto bg-[#0F1117] text-[13px] p-4 leading-relaxed">
-                        <code className={`language-${b.langage||"plaintext"} text-gray-300`}>
-                          {b.contenu}
-                        </code>
-                      </pre>
-                    </div>
+                    <CodeBlock key={j} code={b.contenu} langage={b.langage || "plaintext"} />
                   );
                   if (b.type === "etape") return (
                     <div key={j} className="border-l-[3px] border-green pl-5 py-1 my-6">
@@ -205,6 +187,11 @@ export default function WorkshopDetail() {
           <div className="text-center py-16 text-gray-300 border-2 border-dashed border-gray-200 rounded-xl">
             Contenu à venir
           </div>
+        )}
+
+        {/* Compilateur intégré */}
+        {workshop.contenu?.compilateur?.actif && (
+          <Terminal langages={workshop.contenu.compilateur.langages || ["python"]} collapsible={true} />
         )}
 
         {/* Progression */}

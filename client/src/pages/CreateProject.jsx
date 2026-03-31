@@ -134,6 +134,7 @@ export default function CreateProject() {
   const [form,     setForm]     = useState({
     titre: "", description: "", niveau: "debutant",
     langages: [], domaine_id: "", duree_heures: 2,
+    compilateur_actif: false, compilateur_langages: ["python", "javascript"],
   });
   const [sections, setSections] = useState([]);
   const [pdfFile,  setPdfFile]  = useState(null);
@@ -166,8 +167,13 @@ export default function CreateProject() {
       });
       const canPublish = user.role === "admin" && publie;
       fd.append("publie", String(canPublish));
+      const contenuData = {};
       if ((mode==="editeur"||mode==="les-deux") && sections.length > 0)
-        fd.append("contenu", JSON.stringify({ sections }));
+        contenuData.sections = sections;
+      if (form.compilateur_actif && form.compilateur_langages.length > 0)
+        contenuData.compilateur = { actif: true, langages: form.compilateur_langages };
+      if (Object.keys(contenuData).length > 0)
+        fd.append("contenu", JSON.stringify(contenuData));
       if (pdfFile) fd.append("pdf", pdfFile);
       await workshopService.create(fd);
       navigate("/");
@@ -269,6 +275,46 @@ export default function CreateProject() {
                   ))}
                 </div>
               </div>
+            </div>
+
+            {/* Compilateur intégré */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-gray-700">Compilateur intégré</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Permet aux étudiants de tester du code directement dans le projet</p>
+                </div>
+                <button type="button"
+                  onClick={() => setForm(f => ({ ...f, compilateur_actif: !f.compilateur_actif }))}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${form.compilateur_actif ? "bg-green" : "bg-gray-200"}`}>
+                  <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.compilateur_actif ? "translate-x-5.5" : "translate-x-0.5"}`} />
+                </button>
+              </div>
+              {form.compilateur_actif && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Langages disponibles</p>
+                  <div className="flex flex-wrap gap-2">
+                    {["python","javascript","c","cpp","bash","go"].map(l => {
+                      const active = form.compilateur_langages.includes(l);
+                      return (
+                        <button key={l} type="button"
+                          onClick={() => setForm(f => ({
+                            ...f,
+                            compilateur_langages: active
+                              ? f.compilateur_langages.filter(x => x !== l)
+                              : [...f.compilateur_langages, l]
+                          }))}
+                          className={`px-3 py-1.5 rounded-full text-xs font-mono font-medium border transition-colors
+                            ${active
+                              ? "bg-[#0F1117] text-green border-green/40"
+                              : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"}`}>
+                          {l}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end">
@@ -397,9 +443,17 @@ export default function CreateProject() {
                   <span className="text-gray-500">Sections</span>
                   <span>{sections.length} section{sections.length!==1?"s":""}</span>
                 </div>
-                <div className="flex justify-between py-2">
+                <div className="flex justify-between py-2 border-b border-gray-50">
                   <span className="text-gray-500">PDF</span>
                   <span>{pdfFile ? pdfFile.name : "—"}</span>
+                </div>
+                <div className="flex justify-between py-2">
+                  <span className="text-gray-500">Compilateur</span>
+                  <span className="font-mono text-xs">
+                    {form.compilateur_actif
+                      ? form.compilateur_langages.join(", ") || "—"
+                      : "Désactivé"}
+                  </span>
                 </div>
               </div>
             </div>
